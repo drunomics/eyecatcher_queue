@@ -1,0 +1,8 @@
+eyecatcher_queue.eyecatcher.config:
+  title: 'Eyecatcher Configuration'
+  description: 'Eyecatcher configuration in Teaserstream'
+  parent: system.admin_config_content
+  route_name: eyecatcher_queue.eyecatcher.config
+
+eyecatcher_queue.eyecatcher.config.derived:
+  deriver: '\Drupal\eyecatcher_queue\Plugin\Deriver\EyecatcherLinkContentDeriver'

@@ -1,0 +1,7 @@
+type: module
+name: Eyecatcher Queue
+description: 'Create eyecatcher queues and use them in Views.'
+core: 8.x
+dependencies:
+  - entityqueue
+  - inline_entity_form

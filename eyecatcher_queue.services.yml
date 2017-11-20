@@ -1,0 +1,9 @@
+services:
+  eyecatcher_queue.eyecatcher_config.breadcrumb:
+    class: Drupal\eyecatcher_queue\EyecatcherConfigBreadcrumbBuilder
+    arguments: ['@router.request_context', '@access_manager', '@router', '@path_processor_manager', '@config.factory',  '@title_resolver', '@current_user', '@path.current']
+    tags:
+      - { name: breadcrumb_builder, priority: 100 }
+
+  eyecatcher_queue.service.eyecatcher:
+    class: Drupal\eyecatcher_queue\Service\EyecatcherService

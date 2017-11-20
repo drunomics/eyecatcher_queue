@@ -1,0 +1,10 @@
+eyecatcher_queue.eyecatcher.config:
+  path: '/admin/config/content/eyecatcher'
+  defaults:
+    _title: 'Eyecatcher Configuration'
+    _controller: '\Drupal\eyecatcher_queue\Controller\EyecatcherConfigController::eyecatcherOverview'
+  requirements:
+    _custom_access: '\Drupal\eyecatcher_queue\Controller\EyecatcherConfigController::overviewAccess'
+
+route_callbacks:
+  - 'Drupal\eyecatcher_queue\Routing\EyecatcherRoutes::routes'

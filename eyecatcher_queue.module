@@ -1,0 +1,153 @@
+<?php
+
+/**
+ * @file
+ * Module file.
+ */
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
+use Drupal\Core\Render\Element;
+use Drupal\Core\Field\FieldItemListInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\inline_entity_form\Plugin\Field\FieldWidget\InlineEntityFormComplex;
+use Drupal\views\ViewExecutable;
+use Drupal\views\Plugin\views\cache\CachePluginBase;
+use Drupal\eyecatcher_queue\Plugin\views\area\EyecatcherArea;
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter().
+ */
+function eyecatcher_queue_form_entity_subqueue_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  /** @var \Drupal\entityqueue\Form\EntitySubqueueForm $subqueue_form */
+  $subqueue_form = $form_state->getBuildInfo()['callback_object'];
+  /** @var \Drupal\eyecatcher_queue\Service\EyecatcherService $service */
+  $service = \Drupal::service('eyecatcher_queue.service.eyecatcher');
+
+  if (!$service->isEyecatcherQueue($subqueue_form->getEntity())) {
+    return;
+  }
+
+  $form['#title'] = $subqueue_form->getEntity()->label();
+  $form['actions']['clear']['#value'] = t('Clear all');
+  $form['items']['widget']['actions']['ief_add']['#value'] = t('Add Eyecatcher');
+
+  // Disable queue specific actions.
+  unset($form['actions']['shuffle']);
+  unset($form['actions']['reverse']);
+
+  foreach (Element::children($form['actions']) as $action) {
+    $current_action = &$form['actions'][$action];
+    if ($current_action['#type'] == 'submit') {
+      $current_action['#submit'][] = 'eyecatcher_queue_form_entity_subqueue_eyecatcher_edit_form_submit';
+    }
+  }
+}
+
+/**
+ * Custom submit handler for the queue config.
+ */
+function eyecatcher_queue_form_entity_subqueue_eyecatcher_edit_form_submit(&$form, FormStateInterface $form_state) {
+  $form_state->setRedirectUrl(Url::createFromRequest(\Drupal::request()));
+  // Clear entityqueue status message and set our own.
+  drupal_get_messages('status', TRUE);
+  drupal_set_message(t('The Eyecatcher Config has been updated.'));
+}
+
+/**
+ * Implements hook_field_widget_form_alter().
+ */
+function eyecatcher_queue_field_widget_form_alter(&$element, FormStateInterface $form_state, $context) {
+  /** @var InlineEntityFormComplex $widget */
+  $widget = &$context['widget'];
+  /** @var FieldItemListInterface $items */
+  $items = &$context['items'];
+
+  /** @var \Drupal\eyecatcher_queue\Service\EyecatcherService $service */
+  $service = \Drupal::service('eyecatcher_queue.service.eyecatcher');
+
+  if (
+    !$widget instanceof InlineEntityFormComplex
+    || !$items instanceof FieldItemListInterface
+    || !$service->isEyecatcherQueue($items->getEntity())
+  ) {
+    return;
+  }
+
+  foreach (Element::children($element['entities']) as $key) {
+    $current_element = &$element['entities'][$key];
+    /** @var \Drupal\Core\Entity\Entity $entity */
+    $entity = $current_element['#entity'];
+    $current_element['#label'] = $entity->label();
+  }
+}
+
+/**
+ * Implements hook_inline_entity_form_table_fields_alter().
+ */
+function eyecatcher_queue_inline_entity_form_table_fields_alter(&$fields, $context) {
+  /** @var \Drupal\eyecatcher_queue\Service\EyecatcherService $service */
+  $service = \Drupal::service('eyecatcher_queue.service.eyecatcher');
+
+  if (
+    empty($context['parent_entity_type']) || empty($context['parent_bundle'])
+    || $context['parent_entity_type'] != 'entity_subqueue'
+    || !in_array($context['parent_bundle'], $service->getEyecatcherQueueBundles())
+  ) {
+    return;
+  }
+
+  $fields['type'] = [
+    'type' => 'callback',
+    'label' => 'Type',
+    'weight' => 10,
+    'callback' => 'eyecatcher_queue_inline_entity_form_fields_callback',
+    'callback_arguments' => [
+      'field' => 'type',
+    ],
+  ];
+}
+
+/**
+ * Callback to return display value for custom fields.
+ *
+ * @param EntityInterface $entity
+ *   The current entity.
+ * @param array $variables
+ *   - form: The form.
+ *   - theme_hook_original: Original theme hook.
+ * @param string $field
+ *   The field id.
+ *
+ * @see eyecatcher_queue_inline_entity_form_table_fields_alter()
+ *
+ * @return string|null
+ */
+function eyecatcher_queue_inline_entity_form_fields_callback(EntityInterface $entity, array $variables, $field) {
+  switch ($field) {
+    case 'type':
+      return $entity->bundle();
+  }
+
+  return NULL;
+}
+
+/**
+ * Implements hook_views_post_render().
+ *
+ * Sets up the eyecatcher, it will be rendered at the end of every page load.
+ */
+function eyecatcher_queue_views_post_render(ViewExecutable $view, &$output, CachePluginBase $cache) {
+  foreach (['footer', 'header'] as $area) {
+    if (isset($view->{$area}) && is_array($view->{$area})) {
+      /** @var \Drupal\views\Plugin\views\area\AreaPluginBase[] $view_area */
+      $view_area = $view->{$area};
+      foreach ($view_area as $plugin) {
+        if ($plugin instanceof EyecatcherArea) {
+          /** @var EyecatcherArea $plugin */
+          $plugin->postRender($output);
+        }
+      }
+    }
+  }
+}
